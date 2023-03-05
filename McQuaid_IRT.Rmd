@@ -1,0 +1,560 @@
+---
+title: "Developing a short scale of PERMA+4 using item response theory"
+author: "Scott I. Donaldson, PhD"
+date: "10/27/2022"
+editor_options: 
+  chunk_output_type: console
+---
+```{r Packages}
+#Packages
+library(readxl)
+library(ggplot2)
+library(mokken)
+library(KernSmoothIRT)
+library(psych)
+library(mirt)
+library(freqdist)
+library(dplyr)
+library(directlabels)
+library(tidyverse)
+library(broom)
+```
+```{r Import data}
+CanadaDataset <- read_excel("~/Desktop/McQuaid/R/Data/CanadaDataset.xlsx", sheet = "DATA !")
+
+AustraliaDataset <- read_excel("~/Desktop/McQuaid/R/Data/AustraliaDataset.xls")
+
+```
+```{r Subset data}
+#Gender, Age, Education, Ethnicity, Income, Type of work
+CanadaDataset_sub <- CanadaDataset[, c(4,6,11,
+                                       12,15,
+                                       42,45,48,51,54,57,
+                                       187:195,
+                                       72,73)]
+#Rename
+CanadaDataset_sub <- plyr::rename(CanadaDataset_sub, 
+c("SEX"="GENDER",
+"HOUSEHOLD_INCOME"="INCOME",
+"POSITIVE_EMOTIONS_POSITIVITY"="Positive_Emotions_Positivity",
+"ENGAGEMENT_INTEREST_WORK"="Engagement_Interest_Work",
+"RELATIONSHIPS"="Relationships",
+"MEANING_WORK_VALUABLE"="Meaning_Work_Valuable",
+"ACCOMPLISHMENT"="Accomplishment",
+"HEALTH"="Health",
+"MINDSET_GROWTH_MINDSET"="Mindset_Growth",
+"MINDSET_PROSPECTION"="Mindset_Prospection_Job",
+"MINDSET_PROSPECTION1"="Mindset_Prospection_Work",
+"ENVIRONMENT_PHYSICAL"="Physical_Environment_Focus",
+"ENVIRONMENT_PHYSICAL1"="Physical_Environment_Light",
+"ENVIRONMENT_PHYSICAL2"="Physical_Environment_Nature",
+"ECONOMIC_SECURITY_INCOME"="Economic_Security_Income",
+"ECONOMIC_SECURITY_MEDICAL_SPENDING"="Economic_Security_Medical",
+"ECONOMIC_SECURITY_FINANCIAL_SAVINGS"="Economic_Security_Savings",
+"SATISFACTION_JOB" = "Satisfaction_Job",
+"PERFORMANCE" = "Performance"))
+
+
+#MichiganDataset <- MichiganDataset[, c(5,6,11,42,187:194)]
+
+AustraliaDataset_sub <- AustraliaDataset[, c(7,9,15,16,
+                                             19,27,30,33,
+                                             36,40,44,
+                                             179:187,
+                                             52,55)]
+
+
+```
+```{r Merged data}
+FINAL_merged <- rbind(CanadaDataset_sub,
+               AustraliaDataset_sub)
+
+FINAL_merged_NA <- na.omit(FINAL_merged)
+
+
+FINAL_IRT <- FINAL_merged_NA[, c(6:20)]
+
+FINAL_IRT <- rename(FINAL_IRT,
+Positive_Emotions = Positive_Emotions_Positivity,
+Engagement = Engagement_Interest_Work,
+Meaning = Meaning_Work_Valuable,
+Mindset_Growth_Mindset = Mindset_Growth
+)
+
+
+
+#Subset 9-item dataset
+FINAL_IRT_9 <- FINAL_IRT[, c(1:6,9,10,13)]
+
+
+```
+```{r Demographics}
+#Canada data set
+## Gender
+freqdist(CanadaDataset_sub$GENDER) 
+##Age
+freqdist(CanadaDataset_sub$AGE_BANDS)
+##Education
+freqdist(CanadaDataset_sub$EDUC_LEVEL)
+##Ethnicity
+freqdist(CanadaDataset_sub$ETHNICITY)
+##Income
+freqdist(CanadaDataset_sub$INCOME)
+
+#Australia data set
+AustraliaDataset_sub <- na.omit(AustraliaDataset_sub)
+## Gender
+freqdist(AustraliaDataset_sub$GENDER) 
+##Age
+freqdist(AustraliaDataset_sub$AGE_BANDS)
+##Education
+freqdist(AustraliaDataset_sub$EDUC_LEVEL)
+##Ethnicity
+freqdist(AustraliaDataset_sub$ETHNICITY)
+##Income
+freqdist(AustraliaDataset_sub$INCOME)
+```
+```{r PERMA+4 descriptives}
+#Positive emotion
+freqdist::freqdist(FINAL_IRT$Positive_Emotions)
+mean(FINAL_IRT$Positive_Emotions)
+sd(FINAL_IRT$Positive_Emotions)
+#Engagement
+freqdist::freqdist(FINAL_IRT$Engagement)
+mean(FINAL_IRT$Engagement)
+sd(FINAL_IRT$Engagement)
+#Relationships
+freqdist::freqdist(FINAL_IRT$Relationships)
+mean(FINAL_IRT$Relationships)
+sd(FINAL_IRT$Relationships)
+#Meaning
+freqdist::freqdist(FINAL_IRT$Meaning)
+mean(FINAL_IRT$Meaning)
+sd(FINAL_IRT$Meaning)
+#Accomplishment
+freqdist::freqdist(FINAL_IRT$Accomplishment)
+mean(FINAL_IRT$Accomplishment)
+sd(FINAL_IRT$Accomplishment)
+#Health
+freqdist::freqdist(FINAL_IRT$Health)
+mean(FINAL_IRT$Health)
+sd(FINAL_IRT$Health)
+#Mindset growth
+freqdist::freqdist(FINAL_IRT$Mindset_Growth_Mindset)
+mean(FINAL_IRT$Mindset_Growth_Mindset)
+sd(FINAL_IRT$Mindset_Growth_Mindset)
+#Mindset prospection job
+freqdist::freqdist(FINAL_IRT$Mindset_Prospection_Job)
+mean(FINAL_IRT$Mindset_Prospection_Job)
+sd(FINAL_IRT$Mindset_Prospection_Job)
+#Mindset prospection work
+freqdist::freqdist(FINAL_IRT$Mindset_Prospection_Work)
+mean(FINAL_IRT$Mindset_Prospection_Work)
+sd(FINAL_IRT$Mindset_Prospection_Work)
+#Environment focus
+freqdist::freqdist(FINAL_IRT$Physical_Environment_Focus)
+mean(FINAL_IRT$Physical_Environment_Focus)
+sd(FINAL_IRT$Physical_Environment_Focus)
+#Environment light
+freqdist::freqdist(FINAL_IRT$Physical_Environment_Light)
+mean(FINAL_IRT$Physical_Environment_Light)
+sd(FINAL_IRT$Physical_Environment_Light)
+#Environment nature
+freqdist::freqdist(FINAL_IRT$Physical_Environment_Nature)
+mean(FINAL_IRT$Physical_Environment_Nature)
+sd(FINAL_IRT$Physical_Environment_Nature)
+#Economic security income
+freqdist::freqdist(FINAL_IRT$Economic_Security_Income)
+mean(FINAL_IRT$Economic_Security_Income)
+sd(FINAL_IRT$Economic_Security_Income)
+#Economic security medical
+freqdist::freqdist(FINAL_IRT$Economic_Security_Medical)
+mean(FINAL_IRT$Economic_Security_Medical)
+sd(FINAL_IRT$Economic_Security_Medical)
+#Economic security savings
+freqdist::freqdist(FINAL_IRT$Economic_Security_Savings)
+mean(FINAL_IRT$Economic_Security_Savings)
+sd(FINAL_IRT$Economic_Security_Savings)
+
+```
+```{r Fit parametric model and coefficients}
+#Parametric Model PSU                            
+fit.mirt<-mirt(FINAL_IRT, 
+                    model=1, 
+                    itemtype = 'graded',
+                    #method = "MHRM",
+                    technical= list(removeEmptyRows=TRUE),
+                    SE = TRUE)
+
+#Fit 9-item
+fit.mirt.9 <-mirt(FINAL_IRT_9, 
+                    model=1, 
+                    itemtype = 'graded',
+                    #method = "MHRM",
+                    technical= list(removeEmptyRows=TRUE),
+                    SE = TRUE)
+
+#Coefficients
+coef <- coef(fit.mirt, 
+     simplify=TRUE, 
+     IRTpars=TRUE)
+
+coef <- as.data.frame(coef)
+library("writexl")
+write_xlsx(coef,"coef.csv")
+```
+```{r Kernal smooth plots}
+fit.kern.Total = ksIRT(responses = FINAL_IRT, 
+                       format = 2, 
+                       miss = 'omit', 
+                       key = c(10,10,10,10,10,10,10,10,
+                               10,10,10,10,10,10,10), 
+                       kernel = 'gaussian')
+##paste your ksIRT object here
+irt.OCC <- fit.kern.Total #paste your ksIRT object here
+irt.OCC$evalpoints
+
+
+irt.OCC <- extract.mirt(fit.mirt,
+                        what = "itemnames")
+
+#pull out variable names from IRT object 
+item.names <- tibble(irt.OCC$itemlabels) %>% 
+  rownames_to_column() %>% 
+  dplyr::rename(item = 1,
+                name = 2) %>% 
+  mutate(item = as.numeric(item))
+
+#pull out 51 theta evaluation points from IRT object
+theta.points <- tibble(irt.OCC$evalpoints) %>% 
+  rownames_to_column() %>% 
+  dplyr::rename(point = 1,
+         theta = 2) %>% 
+  mutate(point = as.numeric(point))
+
+#pull out option characteristics terms from IRT object
+irt.OCC.long <- as_tibble(irt.OCC$OCC) %>% 
+  dplyr::rename(item = 1, #rename first 3 columns
+option = 2, 
+weight = 3) %>% 
+arrange(item, option) %>% #sort the data by item then option
+mutate(option = as.factor(option)) %>% #turn option into factor
+pivot_longer(cols = starts_with("V"), # transpose from wide to long for all values
+names_to = "point",
+names_prefix = "V",
+values_to = "occ.prob",
+values_drop_na = TRUE) %>% 
+mutate(point = as.numeric(point) - 3) %>% #recode eval points to numeric and set to 1:51
+left_join(theta.points, by = "point") %>% #merge names and theta points
+left_join(item.names, by = "item") 
+#expected item score
+irt.OCC.long <- irt.OCC.long %>% 
+#filter(item == 1) %>% 
+#arrange(item, point) %>% 
+#group_by(item, option, point) %>% 
+mutate(eis.prob = round(as.numeric(option)*occ.prob, 1),
+theta = round(theta, 1)) %>% 
+group_by(item, point) %>% 
+mutate(eis.prob = sum(eis.prob)) %>% 
+ungroup()
+
+myplots <- vector('list',irt.OCC$nitem)
+
+#print ggplots for all evaluated items 
+for (i in 1:irt.OCC$nitem) { 
+  myplots[[i]] <- print(irt.OCC.long %>%
+          filter(item == i) %>%
+          ggplot(aes(x = theta, y = occ.prob, color = option)) +
+          geom_line() +
+          scale_colour_grey(name = "Response Option:",
+                            labels = c("0 - not at all", 
+                                       "1", 
+                                       "2", 
+                                       "3", 
+                                       "4",
+                                       "5",
+                                       "6",
+                                       "7",
+                                       "8",
+                                       "9",
+                                       "10 - completely")) +
+          scale_x_continuous(breaks = c(-3, -2, -1, 0, 1, 2, 3),
+                             sec.axis = dup_axis(breaks = irt.OCC$subjthetasummary,
+                                                 labels = c("5%", "25%", "", "75%",
+                                                            "95%"),
+                                                 name = irt.OCC$itemlabels[i],)) +
+          scale_y_continuous(breaks = c(0.0, 0.2, 0.4, 0.6, 0.8, 1.0)) +
+          labs(title = '', #paste(irt.OCC$itemlabels[i]
+               x = '',     #Theta
+               y = '') +   #Probability of Item Endorsement
+          theme_classic() +
+          theme(#legend.position = "none",
+                #axis.text.y  = element_text(angle = 90, hjust = .5, size = 10),
+                panel.border = element_rect(colour = "black", fill=NA),
+                plot.title = element_blank(),
+                axis.title.x.bottom = element_blank(),
+                axis.title.y = element_blank(),
+                axis.text.x.top = element_text(size=7),
+                axis.title.x.top = element_text(size=9),
+                #legend.box.background = element_rect(colour = "black", linetype='solid'),
+                legend.title = element_text(size=9),
+                legend.text = element_text(size=9),
+            
+                legend.spacing.x = unit(.1, 'cm')) +
+          geom_vline(xintercept=c(irt.OCC$subjthetasummary), linetype = 2,
+                    alpha=.25) +
+          guides(colour = guide_legend(override.aes = list(size=3)))
+          
+        )  
+}
+
+
+fig1.New <- ggarrange(
+myplots[[1]],myplots[[2]],myplots[[3]],myplots[[4]],
+myplots[[5]],myplots[[6]],myplots[[7]],myplots[[8]],
+myplots[[9]],myplots[[10]],myplots[[11]],
+myplots[[12]],myplots[[13]],myplots[[14]],
+myplots[[15]],
+ncol = 5, 
+nrow =3, 
+common.legend = TRUE, 
+legend = "right")
+
+
+fig1 <- annotate_figure(fig1.New, 
+bottom = text_grob(expression(paste("Level of PERMA+4 (", theta, ")")), size = 5),
+left = text_grob("Probability of Item Endorsement", 
+rot = 90, 
+size = 10))
+
+print(fig1)
+
+```
+```{r Option characteristic curve}
+# plot option characteristic curves
+plot <- plot(fit.mirt, 
+     type='trace',
+     facet_items = TRUE,
+     theta_lim = c(-3,3),
+     main = FALSE)
+
+direct.label(plot,
+             'top.points')
+
+
+```
+```{r Test information function 15-item}
+Testinfo <- (plot(fit.mirt, type='info', MI = 100))
+SE <-  plot(fit.mirt, type='SE', MI = 100)
+cbind(data.frame(Testinfo$panel.args), data.frame(SE$panel.args))
+
+TI.Final <-  cbind(data.frame(Testinfo$panel.args) %>%
+dplyr::rename("z" = 1, "test.info" = 2),
+data.frame(SE$panel.args) %>% 
+select(2) %>% 
+rename("se" = 1)) %>% 
+print()
+
+TI.Final <- TI.Final %>% 
+  rowwise() %>% 
+  mutate(ci.low = test.info + (se * 1.96),
+         ci.high = test.info - (se * 1.96)) %>% 
+  as.data.frame() %>% 
+  print()
+
+ggplot(TI.Final, aes(x=z)) +
+  #geom_ribbon(aes(ymin=ci.low, ymax=ci.high, linetype="dotted"), colour="black", alpha = 0.2) +
+  geom_line(aes(y=se), linetype="dashed") +
+  geom_line(aes(y=test.info)) +
+  #scale_linetype_manual(values = c(3))+
+  scale_fill_manual(values = c("grey60"))+
+  scale_color_manual(values = c('black'))+
+  scale_x_continuous(breaks = seq(-5, 5, 1)) +
+  scale_y_continuous(sec.axis = sec_axis(~., name = "Standard Error")) +
+  coord_cartesian(ylim = c(0,25), xlim = c(-3.5,3.5)) +
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        text=element_text(family = "sans", face = "bold", size = 9),
+        panel.background = element_rect(colour = "black", fill = NA, linetype=1, size = 1)) +
+  #ggtitle("PSU and Psychosocial Test Infromation Functions") +
+  ylab("Test Information (95% CI)") +
+  xlab("Level of PERMA+4") +
+  geom_vline(xintercept = 0, linetype="dotted", colour="black", alpha = 0.33)
+```
+```{r Test information function 9-item}
+Testinfo <- (plot(fit.mirt.9, type='info', MI = 100))
+SE <-  plot(fit.mirt.9, type='SE', MI = 100)
+cbind(data.frame(Testinfo$panel.args), data.frame(SE$panel.args))
+
+TI.Final <-  cbind(data.frame(Testinfo$panel.args) %>%
+dplyr::rename("z" = 1, "test.info" = 2),
+data.frame(SE$panel.args) %>% 
+select(2) %>% 
+rename("se" = 1)) %>% 
+print()
+
+TI.Final <- TI.Final %>% 
+  rowwise() %>% 
+  mutate(ci.low = test.info + (se * 1.96),
+         ci.high = test.info - (se * 1.96)) %>% 
+  as.data.frame() %>% 
+  print()
+
+ggplot(TI.Final, aes(x=z)) +
+  #geom_ribbon(aes(ymin=ci.low, ymax=ci.high, linetype="dotted"), colour="black", alpha = 0.2) +
+  geom_line(aes(y=se), linetype="dashed") +
+  geom_line(aes(y=test.info)) +
+  #scale_linetype_manual(values = c(3))+
+  scale_fill_manual(values = c("grey60"))+
+  scale_color_manual(values = c('black'))+
+  scale_x_continuous(breaks = seq(-5, 5, 1)) +
+  scale_y_continuous(sec.axis = sec_axis(~., name = "Standard Error")) +
+  coord_cartesian(ylim = c(0,25), xlim = c(-3.5,3.5)) +
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        text=element_text(family = "sans", face = "bold", size = 9),
+        panel.background = element_rect(colour = "black", fill = NA, linetype=1, size = 1)) +
+  #ggtitle("PSU and Psychosocial Test Infromation Functions") +
+  ylab("Test Information (95% CI)") +
+  xlab("Level of Problematic Smartphone Use") +
+  geom_vline(xintercept = 0, linetype="dotted", colour="black", alpha = 0.33)
+```
+```{r Test info simple}
+#Test info for 15-item measure
+plot(fit.mirt, type = "infoSE")
+#Test info for 9-item measure
+plot(fit.mirt.9, type = "infoSE")
+
+key=list(columns=1, 
+text=list(lab=c("PERMA+4 15-item","PERMA+4 9-item")), 
+lines=list(lwd=4, col=c("blue","orange")))
+
+p1 = plot(fit.mirt,type="info",key=key,xlim=c(-3,3),ylim=c(0,25))
+p2 = update(plot(fit.mirt.9,type="info"),col="orange")
+TI.plot <-  p1+p2
+
+```
+```{r Item information function}
+key=list(columns=5, 
+text=list(lab=c("Positive_Emotions",
+                "Engagement",
+                "Relationships",
+                "Meaning",
+                "Accomplishment",
+                "Health",
+                "Mindset_Prospection_Work",
+                "Physical_Environment_Focus",
+                "Economic_Security_Income")), 
+lines=list(lwd=6, col=c("blue",
+                        "orange",
+                        "red",
+                        "purple",
+                        "green",
+                        "gray",
+                        "brown",
+                        "black",
+                        "yellow")))
+
+p1 = itemplot(fit.mirt.9,
+          type="info",
+          item = "Positive_Emotions",
+          key=key,
+          xlim=c(-3,3),
+          ylim=c(0,5))
+p2 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Engagement"),
+                 col="orange")
+p3 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Relationships"),
+                 col="red")
+p4 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Meaning"),
+                 col="purple")
+p5 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Accomplishment"),
+                 col="green")
+p6 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Health"),
+                 col="gray")
+p7 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Mindset_Prospection_Work"),
+                 col="brown")
+p8 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Physical_Environment_Focus"),
+                 col="black")
+p9 = update(itemplot(fit.mirt.9,
+                 type="info",
+                 item = "Economic_Security_Income"),
+                 col="yellow")
+
+
+TI.plot <- p1+p2+p3+p4+p5+p6+p7+p8+p9
+
+TI.plot
+
+```
+```{r Reliability and Validity}
+#Cronbachs Alpha
+alpha(FINAL_IRT_9)
+
+#Predicting Job Satisfaction
+model1=lm(Satisfaction_Job~
+Positive_Emotions_Positivity + 
+Engagement_Interest_Work +
+Relationships +
+Accomplishment +
+Health +
+Mindset_Prospection_Work +
+Physical_Environment_Focus +
+Economic_Security_Income +
+GENDER +
+AGE_BANDS +
+ETHNICITY +
+INCOME,
+FINAL_merged_NA)
+
+model2=lm(Satisfaction_Job~
+Positive_Emotions_Positivity + 
+Engagement_Interest_Work +
+Relationships +
+Accomplishment +
+Health +
+Mindset_Prospection_Work + 
+Mindset_Prospection_Job +
+Mindset_Growth +
+Physical_Environment_Focus +
+Physical_Environment_Light +
+Physical_Environment_Nature +
+Economic_Security_Income +
+Economic_Security_Medical +
+Economic_Security_Savings +
+GENDER +
+AGE_BANDS +
+ETHNICITY +
+INCOME,
+FINAL_merged_NA)
+
+anova(model1,model2)
+summary(model1)
+summary(model2)
+
+#Regression diagnostics
+plot(model1)
+plot(model2)
+
+
+```
+
+
+
